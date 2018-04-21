@@ -9,8 +9,17 @@ class vec3:
         self.y = y
         self.z = z
         
+    # settting new coordinates to vector
+    def set(self, x, y, z):
+        self.x = x
+        self.y = y
+        self.z = z
+    
+    # representation for printing it out
     def __str__(self):
         return 'vec3 @ ({0}, {1}, {2})'.format(self.x, self.y, self.z)
+    
+    # vec operations:
     
     def __add__(self, other):
         return vec3(self.x + other.x, self.y + other.y, self.z + other.z)
@@ -28,6 +37,7 @@ class vec3:
         return (self.x * other.x + self.y * other.y + self.z * other.z)
     
     
+# does not affect parameter
 def normalized(vec):
     norm = sqrt(vec.x * vec.x + vec.y * vec.y + vec.z * vec.z)
     return vec3(vec.x / norm, vec.y / norm, vec.z / norm)
@@ -38,7 +48,6 @@ def normalized(vec):
 v1 = vec3(1,0,0)
 v2 = vec3(1,2,2)
 v3 = vec3(1,0,1)
-
 
 v4 = (((v1 + v2 - v3) / 5))
 print(normalized(v4))
