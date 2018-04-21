@@ -44,10 +44,28 @@ def normalized(vec):
 
 
     
-    
+""" 
 v1 = vec3(1,0,0)
 v2 = vec3(1,2,2)
 v3 = vec3(1,0,1)
 
 v4 = (((v1 + v2 - v3) / 5))
 print(normalized(v4))
+"""
+
+class Ray:
+    def __init__(self, start, end):
+        self.start = start
+        self.end = end
+        
+
+
+
+
+
+
+
+
+
+
+
