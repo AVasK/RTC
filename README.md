@@ -10,4 +10,4 @@ in Python.
 
 (-) not really effective because of iterative nature
 
-(?) possibly it'll get re-written in Haskell
+(?) possibly it'll be re-written in Haskell
