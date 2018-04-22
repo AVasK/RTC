@@ -1,6 +1,8 @@
 # PyTrace: Prototyping iterative raytracing
 from math import sqrt
 
+import time
+
 class vec3:
     '3d vector class'
     
@@ -94,10 +96,13 @@ def Sphere(x, center, radius):
     return dist(x, center) - radius
 
 def s1(x):
-    return Sphere(x, vec3(W//2, 400, H//2), 300)
+    return Sphere(x, vec3(W//2 + 200, 400, H//2), 300)
 
 def s2(x):
-    return Sphere(x, vec3(W//2 - 40, 50, H//2 + 40), 20)
+    return Sphere(x, vec3(W//2 - 330, 400, H//2 + 330), 300)
+
+def plane(p):
+    return p.x - 3
 
 def clamp(clr):
     if clr.x > 255:
@@ -117,27 +122,23 @@ def clamp(clr):
 
 
 
-H, W = 200, 200
+H, W = 300, 300
+MAX_RAY_LENGTH = 900
 
+camera = vec3(W//2, -500, H//2)
+light = vec3(W//2, 0, H//2) + vec3(10, 0, 10)
 
-camera = vec3(W//2, 0, H//2)
-light = camera - vec3(20, 0, -20)
-
-object_functions = [s1, s2]
+object_functions = [s1, s2, plane]
 
 img = [[0 for w in range (0, W)] for h in range(0, H)]
 console = [['.' for w in range (0, W)] for h in range(0, H)]
 out = open('out.ppm', 'w')
 out.write('P3\n{0} {1} 255\n'.format(W, H))
 
-def DistanceEval(p): # DistEval(func, point)
-    f = object_functions[0]
-    for func in object_functions[1:]:
-        if func(p) < f(p):
-            f = func
+def DistanceEval(f, p): # DistEval(func, point)
     return f(p)
 
-def EstNormal(z, eps):
+def EstNormal(z, obj, eps):
     z1 = z + vec3(eps, 0, 0)
     z2 = z - vec3(eps, 0, 0)
     z3 = z + vec3(0, eps, 0)
@@ -145,27 +146,42 @@ def EstNormal(z, eps):
     z5 = z + vec3(0, 0, eps)
     z6 = z - vec3(0, 0, eps)
     
-    dx = DistanceEval(z1) - DistanceEval(z2)
-    dy = DistanceEval(z3) - DistanceEval(z4)
-    dz = DistanceEval(z5) - DistanceEval(z6)
+    dx = DistanceEval(obj, z1) - DistanceEval(obj, z2)
+    dy = DistanceEval(obj, z3) - DistanceEval(obj, z4)
+    dz = DistanceEval(obj, z5) - DistanceEval(obj, z6)
     
     return normalized(vec3(dx,dy,dz) / (2.0 * eps))
 
-def RayIntersectLinear(ray):
+def RayIntersectLinear(ray, step = 40):
+    i = 0
+    while i <= MAX_RAY_LENGTH:
+        dot = ray.org() + ray.sdir * i * step
+        for f in object_functions:
+            if f(dot) <= 0:
+                if step > 2:
+                    i -= 1
+                    step /= 2
+                else:
+                    return [dist(ray.org(), dot), dot]
+        i += 1
+    return False
+'''
+def RayIntersect(ray):
     step = 1
-    for i in range(0, 200):
+    for i in range(0, MAX_RAY_LENGTH):
         dot = ray.org() + ray.sdir * i * step
         for f in object_functions:
             if f(dot) <= 0:
                 return [dist(ray.org(), dot), dot]
     return False
+'''
 
-# If i'm right, this should be a Distance-Aided render
+# If i'm right, this should be a Distance-Aided imlementation
 def RayIntersect(ray):
     dot = ray.org()
     dist_min = object_functions[0](dot)
     min_dist = 4
-    max_len = 400
+    max_len = MAX_RAY_LENGTH
     while dist_min >= min_dist and dist(ray.org(), dot) <= max_len:
         dist_min = object_functions[0](dot)
         for f in object_functions[1:]:
@@ -187,7 +203,12 @@ def RayTrace(ray):
     
     hit_point = hit[1]
     L = light - hit_point
-    N = EstNormal(hit_point, 0.001)
+    f = object_functions[0]
+    for func in object_functions[1:]:
+        if func(hit_point) < f(hit_point):
+            f = func
+            
+    N = EstNormal(hit_point, f, 0.001)
     dL = normalized(N).dot(normalized(L))
     
     color = clamp(vec3(255,255,255) * dL)
@@ -211,8 +232,10 @@ def RTC():
             img[h][w] = color
             out.write('{0} {1} {2}\n'.format(int(color.x), int(color.y), int(color.z)))
 
-        
+t1 = time.clock()
 RTC()
+t2 = time.clock()
+print(t2 - t1)
 
 #for row in console:
     #print(''.join(row))
