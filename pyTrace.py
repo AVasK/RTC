@@ -36,6 +36,8 @@ class vec3:
     def dot(self, other):
         return (self.x * other.x + self.y * other.y + self.z * other.z)
     
+    def length(self):
+        return sqrt(self.x * self.x + self.y * self.y + self.z * self.z)
     
 # does not affect parameter
 def normalized(vec):
@@ -90,17 +92,36 @@ def f(p):
 def Sphere(x, center, radius):
     return dist(x, center) - radius
 
-H, W = 100, 60
+light = vec3(10, 0, 20)
+
+H, W = 100, 100
 
 img = [[0 for w in range (0, W)] for h in range(0, H)]
 console = [['.' for w in range (0, W)] for h in range(0, H)]
 out = open('out.ppm', 'w')
 out.write('P3\n{0} {1} 255\n'.format(W, H))
 
+def DistanceEval(p): # DistEval(func, point)
+    return Sphere(p, vec3(W//2, 120, H//2), 80)
+
+def EstNormal(z, eps):
+    z1 = z + vec3(eps, 0, 0)
+    z2 = z - vec3(eps, 0, 0)
+    z3 = z + vec3(0, eps, 0)
+    z4 = z - vec3(0, eps, 0)
+    z5 = z + vec3(0, 0, eps)
+    z6 = z - vec3(0, 0, eps)
+    
+    dx = DistanceEval(z1) - DistanceEval(z2)
+    dy = DistanceEval(z3) - DistanceEval(z4)
+    dz = DistanceEval(z5) - DistanceEval(z6)
+    
+    return normalized(vec3(dx,dy,dz) / (2.0 * eps))
+
 def RayIntersect(ray):
     for i in range(0, 400):
         dot = ray.org() + ray.sdir * i
-        if Sphere(dot, vec3(W//2, 120, H//2), 20) <= 0:
+        if Sphere(dot, vec3(W//2, 120, H//2), 80) <= 0:
             return [dist(ray.org(), dot), dot]
     return False
 
@@ -111,10 +132,12 @@ def RayTrace(ray):
     if not hit:
         return color
     
-    hit_point = ray.org() + ray.dir() * hit[0]
-    if dist(hit_point, hit[1]) >= 1e-4: 
-        print("OOPS!\n {0} <-> {1}\n\n".format(hit_point, hit[1]))
-    color = vec3(255,255,255)
+    hit_point = hit[1]
+    L = light - hit_point
+    N = EstNormal(hit_point, 0.001)
+    dL = normalized(N).dot(normalized(L))
+    
+    color = vec3(255,255,255) * dL
     #shading:
 
     #for ls in scene.lights:
@@ -125,21 +148,21 @@ def RayTrace(ray):
 
 
 def RTC():
-    camera = vec3(0,0,0)
+    camera = vec3(W//2, 0, H//2)
     for h in range(0, H):
+        if h % 10 == 0: print(h*100/H, '% complete\n') # % complete
         for w in range(0, W):
             ray = Ray(camera, vec3(h, 20, w))
             color = RayTrace(ray)
-            if color.x == 255:
-                console[h][w] = '*'
-                img[h][w] = color
+            
+            img[h][w] = color
             out.write('{0} {1} {2}\n'.format(int(color.x), int(color.y), int(color.z)))
 
         
 RTC()
 
-for row in console:
-    print(''.join(row))
+#for row in console:
+    #print(''.join(row))
 
 '''
 
