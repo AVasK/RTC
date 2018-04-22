@@ -67,11 +67,12 @@ class Ray:
     def __init__(self, start, end):
         self.start = start
         self.end = end
+        self.sdir = normalized(end - start)
         
     def dir(self):
-        return self.end - self.start
+        return normalized(self.end - self.start)
     
-    def pos(self):
+    def org(self):
         return self.start
         
     def __str__(self):
@@ -87,24 +88,58 @@ def f(p):
         return 10
     
 def Sphere(x, center, radius):
-    #return abs(dist(x, center)) + radius
-    return f(x)
+    return dist(x, center) - radius
 
-'''
-def RayTrace(ray) -> vec3:
+H, W = 100, 60
+
+img = [[0 for w in range (0, W)] for h in range(0, H)]
+console = [['.' for w in range (0, W)] for h in range(0, H)]
+out = open('out.ppm', 'w')
+out.write('P3\n{0} {1} 255\n'.format(W, H))
+
+def RayIntersect(ray):
+    for i in range(0, 400):
+        dot = ray.org() + ray.sdir * i
+        if Sphere(dot, vec3(W//2, 120, H//2), 20) <= 0:
+            return [dist(ray.org(), dot), dot]
+    return False
+
+def RayTrace(ray):
     color = vec3(0,0,0)
     
-    hit = RayIntersect(ray) # either a vec3 or False.
+    hit = RayIntersect(ray) # either a [dist, hit_point] or False.
     if not hit:
         return color
     
-    hit_point = ray.pos() + ray.dir() * hit
-
+    hit_point = ray.org() + ray.dir() * hit[0]
+    if dist(hit_point, hit[1]) >= 1e-4: 
+        print("OOPS!\n {0} <-> {1}\n\n".format(hit_point, hit[1]))
+    color = vec3(255,255,255)
     #shading:
-    for ls in scene.lights:
-        if visible(hit_point, ls):
-            color += shade(hit_point, hit.normal)
 
+    #for ls in scene.lights:
+        #if visible(hit_point, ls):
+            #color += shade(hit_point, hit.normal)
+
+    return color
+
+
+def RTC():
+    camera = vec3(0,0,0)
+    for h in range(0, H):
+        for w in range(0, W):
+            ray = Ray(camera, vec3(h, 20, w))
+            color = RayTrace(ray)
+            if color.x == 255:
+                console[h][w] = '*'
+                img[h][w] = color
+            out.write('{0} {1} {2}\n'.format(int(color.x), int(color.y), int(color.z)))
+
+        
+RTC()
+
+for row in console:
+    print(''.join(row))
 
 '''
 
@@ -122,29 +157,9 @@ img = [[' ' for w in range (0, H)] for h in range(0, W)]
 out = open('out.ppm', 'w')
 out.write('P3\n{0} {1} 255\n'.format(W, H))
 
-for x in range(-W//2, W - W//2 + 1):
-    for z in range(-H//2, H - H//2 + 1):
-        color = vec3(0,0,0)
-        
-        offset = vec3(x, 0, z)
-        on_screen_pos = screen_center + offset
-
-        ray = Ray(camera_pos, on_screen_pos)
-        #ray = Ray(on_screen_pos, on_screen_pos + camera_dir)
-
-        step = 10
-        while ray.length() <= 500:
-            color.set(0,0,0)
-            if Sphere(ray.end, vec3(0,150,0), 100) <= 0:
-                color = vec3(255,255,255)
-                break
-            ray.end += normalized(ray.dir()) * step
-        
-        if color.x == 255: img[x][z] = '*'
-        out.write("{0} {1} {2}\n".format(color.x, color.y, color.z))
-        
 out.close()
+
 for row in img:
     print(''.join(row))
 
-
+'''
