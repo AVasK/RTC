@@ -1,5 +1,5 @@
 # PyTrace: Prototyping iterative raytracing
-from math import sqrt
+from math import sqrt, sin
 
 import time
 
@@ -102,7 +102,8 @@ def s2(x):
     return Sphere(x, vec3(W//2 - 330, 400, H//2 + 330), 300)
 
 def plane(p):
-    return p.x - 3
+    #return p.x - 3
+    return sin(p.x) + sin(p.y) - 100
 
 def clamp(clr):
     if clr.x > 255:
@@ -122,8 +123,8 @@ def clamp(clr):
 
 
 
-H, W = 300, 300
-MAX_RAY_LENGTH = 900
+H, W = 500, 500
+MAX_RAY_LENGTH = 1000
 
 camera = vec3(W//2, -500, H//2)
 light = vec3(W//2, 0, H//2) + vec3(10, 0, 10)
@@ -152,7 +153,8 @@ def EstNormal(z, obj, eps):
     
     return normalized(vec3(dx,dy,dz) / (2.0 * eps))
 
-def RayIntersectLinear(ray, step = 40):
+
+def RayIntersectLinear(ray, step = 4):
     i = 0
     while i <= MAX_RAY_LENGTH:
         dot = ray.org() + ray.sdir * i * step
@@ -160,13 +162,15 @@ def RayIntersectLinear(ray, step = 40):
             if f(dot) <= 0:
                 if step > 2:
                     i -= 1
-                    step /= 2
+                    step -= step//2
                 else:
                     return [dist(ray.org(), dot), dot]
         i += 1
     return False
+
+
 '''
-def RayIntersect(ray):
+def RayIntersectLinear(ray):
     step = 1
     for i in range(0, MAX_RAY_LENGTH):
         dot = ray.org() + ray.sdir * i * step
