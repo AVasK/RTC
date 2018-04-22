@@ -40,8 +40,18 @@ class vec3:
 # does not affect parameter
 def normalized(vec):
     norm = sqrt(vec.x * vec.x + vec.y * vec.y + vec.z * vec.z)
+    if norm == 0:
+        norm = 1
     return vec3(vec.x / norm, vec.y / norm, vec.z / norm)
 
+def sq_norm(vec):
+    norm = sqrt(vec.x * vec.x + vec.y * vec.y + vec.z * vec.z)
+    return norm
+
+
+def dist(vec1, vec2):
+    v = vec2 - vec1
+    return sqrt(v.x * v.x + v.y * v.y + v.z * v.z)
 
     
 """ 
@@ -58,14 +68,83 @@ class Ray:
         self.start = start
         self.end = end
         
+    def dir(self):
+        return self.end - self.start
+    
+    def pos(self):
+        return self.start
+        
+    def __str__(self):
+        return "Vector: {0} -> {1}".format(self.start, self.end)
+    
+    def length(self):
+        return dist(self.end, self.start)
+
+def f(p):
+    if dist(p, vec3(0,150,0)) < 50:
+        return 0
+    else:
+        return 10
+    
+def Sphere(x, center, radius):
+    #return abs(dist(x, center)) + radius
+    return f(x)
+
+'''
+def RayTrace(ray) -> vec3:
+    color = vec3(0,0,0)
+    
+    hit = RayIntersect(ray) # either a vec3 or False.
+    if not hit:
+        return color
+    
+    hit_point = ray.pos() + ray.dir() * hit
+
+    #shading:
+    for ls in scene.lights:
+        if visible(hit_point, ls):
+            color += shade(hit_point, hit.normal)
+
+
+'''
+
+camera_pos = vec3(0,-50,0)
+camera_dir = vec3(0,1,0)
+d = 50
+screen_center = camera_pos + normalized(camera_dir) * d
 
 
 
+W, H = 100, 100
 
+img = [[' ' for w in range (0, H)] for h in range(0, W)]
 
+out = open('out.ppm', 'w')
+out.write('P3\n{0} {1} 255\n'.format(W, H))
 
+for x in range(-W//2, W - W//2 + 1):
+    for z in range(-H//2, H - H//2 + 1):
+        color = vec3(0,0,0)
+        
+        offset = vec3(x, 0, z)
+        on_screen_pos = screen_center + offset
 
+        ray = Ray(camera_pos, on_screen_pos)
+        #ray = Ray(on_screen_pos, on_screen_pos + camera_dir)
 
-
+        step = 10
+        while ray.length() <= 500:
+            color.set(0,0,0)
+            if Sphere(ray.end, vec3(0,150,0), 100) <= 0:
+                color = vec3(255,255,255)
+                break
+            ray.end += normalized(ray.dir()) * step
+        
+        if color.x == 255: img[x][z] = '*'
+        out.write("{0} {1} {2}\n".format(color.x, color.y, color.z))
+        
+out.close()
+for row in img:
+    print(''.join(row))
 
 
