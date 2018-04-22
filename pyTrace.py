@@ -83,6 +83,7 @@ class Ray:
     def length(self):
         return dist(self.end, self.start)
 
+    
 def f(p):
     if dist(p, vec3(0,150,0)) < 50:
         return 0
@@ -92,6 +93,11 @@ def f(p):
 def Sphere(x, center, radius):
     return dist(x, center) - radius
 
+def s1(x):
+    return Sphere(x, vec3(W//2, 400, H//2), 300)
+
+def s2(x):
+    return Sphere(x, vec3(W//2 - 40, 50, H//2 + 40), 20)
 
 def clamp(clr):
     if clr.x > 255:
@@ -109,9 +115,15 @@ def clamp(clr):
     
     return clr
 
-light = vec3(10, -30, 10)
 
-H, W = 400, 400
+
+H, W = 200, 200
+
+
+camera = vec3(W//2, 0, H//2)
+light = camera - vec3(20, 0, -20)
+
+object_functions = [s1, s2]
 
 img = [[0 for w in range (0, W)] for h in range(0, H)]
 console = [['.' for w in range (0, W)] for h in range(0, H)]
@@ -119,7 +131,11 @@ out = open('out.ppm', 'w')
 out.write('P3\n{0} {1} 255\n'.format(W, H))
 
 def DistanceEval(p): # DistEval(func, point)
-    return Sphere(p, vec3(W//2, 310, H//2), 300)
+    f = object_functions[0]
+    for func in object_functions[1:]:
+        if func(p) < f(p):
+            f = func
+    return f(p)
 
 def EstNormal(z, eps):
     z1 = z + vec3(eps, 0, 0)
@@ -135,13 +151,32 @@ def EstNormal(z, eps):
     
     return normalized(vec3(dx,dy,dz) / (2.0 * eps))
 
-def RayIntersect(ray):
+def RayIntersectLinear(ray):
     step = 1
     for i in range(0, 200):
         dot = ray.org() + ray.sdir * i * step
-        if Sphere(dot, vec3(W//2, 310, H//2), 300) <= 0:
-            return [dist(ray.org(), dot), dot]
+        for f in object_functions:
+            if f(dot) <= 0:
+                return [dist(ray.org(), dot), dot]
     return False
+
+# If i'm right, this should be a Distance-Aided render
+def RayIntersect(ray):
+    dot = ray.org()
+    dist_min = object_functions[0](dot)
+    min_dist = 4
+    max_len = 400
+    while dist_min >= min_dist and dist(ray.org(), dot) <= max_len:
+        dist_min = object_functions[0](dot)
+        for f in object_functions[1:]:
+            dst = f(dot)
+            if dst < dist_min:
+                dist_min = dst
+                
+        dot += ray.sdir * dist_min
+    #print("Out of cycle!\n")
+    return RayIntersectLinear(Ray(dot, dot + ray.sdir))
+           
 
 def RayTrace(ray):
     color = vec3(0,0,0)
@@ -166,7 +201,6 @@ def RayTrace(ray):
 
 
 def RTC():
-    camera = vec3(W//2, 0, H//2)
     for h in range(0, H):
         percent = h*100/H
         if percent % 10 == 0: print(percent, '% complete\n') # % complete
