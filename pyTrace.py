@@ -92,9 +92,26 @@ def f(p):
 def Sphere(x, center, radius):
     return dist(x, center) - radius
 
-light = vec3(10, 0, 20)
 
-H, W = 100, 100
+def clamp(clr):
+    if clr.x > 255:
+        clr.x = 255
+    if clr.x < 0:
+        clr.x = 0
+    if clr.y > 255:
+        clr.y = 255
+    if clr.y < 0:
+        clr.y = 0
+    if clr.z > 255:
+        clr.z = 255
+    if clr.z < 0:
+        clr.z = 0
+    
+    return clr
+
+light = vec3(10, -30, 10)
+
+H, W = 400, 400
 
 img = [[0 for w in range (0, W)] for h in range(0, H)]
 console = [['.' for w in range (0, W)] for h in range(0, H)]
@@ -102,7 +119,7 @@ out = open('out.ppm', 'w')
 out.write('P3\n{0} {1} 255\n'.format(W, H))
 
 def DistanceEval(p): # DistEval(func, point)
-    return Sphere(p, vec3(W//2, 120, H//2), 80)
+    return Sphere(p, vec3(W//2, 310, H//2), 300)
 
 def EstNormal(z, eps):
     z1 = z + vec3(eps, 0, 0)
@@ -119,9 +136,10 @@ def EstNormal(z, eps):
     return normalized(vec3(dx,dy,dz) / (2.0 * eps))
 
 def RayIntersect(ray):
-    for i in range(0, 400):
-        dot = ray.org() + ray.sdir * i
-        if Sphere(dot, vec3(W//2, 120, H//2), 80) <= 0:
+    step = 1
+    for i in range(0, 200):
+        dot = ray.org() + ray.sdir * i * step
+        if Sphere(dot, vec3(W//2, 310, H//2), 300) <= 0:
             return [dist(ray.org(), dot), dot]
     return False
 
@@ -137,7 +155,7 @@ def RayTrace(ray):
     N = EstNormal(hit_point, 0.001)
     dL = normalized(N).dot(normalized(L))
     
-    color = vec3(255,255,255) * dL
+    color = clamp(vec3(255,255,255) * dL)
     #shading:
 
     #for ls in scene.lights:
@@ -150,7 +168,8 @@ def RayTrace(ray):
 def RTC():
     camera = vec3(W//2, 0, H//2)
     for h in range(0, H):
-        if h % 10 == 0: print(h*100/H, '% complete\n') # % complete
+        percent = h*100/H
+        if percent % 10 == 0: print(percent, '% complete\n') # % complete
         for w in range(0, W):
             ray = Ray(camera, vec3(h, 20, w))
             color = RayTrace(ray)
