@@ -150,9 +150,10 @@ def clamp(clr):
 ### CONSTANTS & OTHER DATA:
 ###
 
-H, W = 300, 300
+H, W = 400, 400
 MAX_RAY_LENGTH = 600
 NUM_OF_REFLECTIONS = 4
+BOX = vec3(4*W, 500, 4*H) 
 
 camera = vec3(W//2, -200, H//2)
 
@@ -203,7 +204,9 @@ def RayIntersectLinear(ray, step = 4, ignore_mesh = []):
     ' returns False if no intersection is found, or [dist, point]'
     i = 1
     while i <= MAX_RAY_LENGTH:
-        dot = ray.org() + ray.dir() * i * step
+        dot = ray.org() + ray.sdir * i * step ### ray.sdir <-> ray.dir()
+        if abs(dot.y) >= BOX.y or abs(dot.x) >= BOX.x or abs(dot.z) >= BOX.z: ### BOX added
+            return False
         for f in object_functions:
             if f not in ignore_mesh:
                 if f(dot) <= 0:
@@ -240,7 +243,7 @@ def RayIntersect(ray, max_len = MAX_RAY_LENGTH, ignore_mesh = []):
             if dst < dist_min:
                 dist_min = dst
                 
-        dot += ray.dir() * dist_min
+        dot += ray.sdir * dist_min ### ray.sdir <-> ray.dir()
     #print("Out of cycle!\n")
     return RayIntersectLinear(Ray(dot, dot + ray.sdir))  ### using ray.sdir instead of ray.dir(). sdir caches dir() at ray creation
            
@@ -329,9 +332,10 @@ def visible(point, obj):
 def RTC():
     for h in range(0, H):
         percent = h*100/H
-        if percent % 10 == 0: print(percent, '% complete\n') # % complete
+        if percent % 10 == 0: print(percent, '% complete') # % complete
         for w in range(0, W):
             ray = Ray(camera, vec3(h, 0, w))
+            ray.start += ray.sdir * dist(ray.start, vec3(h,0,w)) * 0.8
             color = RayTrace(ray)
             
             img[h][w] = color
