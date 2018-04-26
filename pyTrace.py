@@ -1,6 +1,6 @@
 # PyTrace: Prototyping iterative raytracing
 from math import sqrt
-
+import random
 import time
 
 class vec3:
@@ -146,29 +146,56 @@ def clamp(clr):
     return clr
 
 
+class SphereObject:
+    def __init__(self, center, R):
+        self.R = R
+        self.center = center
+        
+    def __call__(self, p):
+        return Sphere(p, self.center, self.R)
+    
+    
+
 ###
 ### CONSTANTS & OTHER DATA:
 ###
 
-H, W = 400, 400
+H, W = 1500, 1500
 MAX_RAY_LENGTH = 600
 NUM_OF_REFLECTIONS = 4
-BOX = vec3(4*W, 500, 4*H) 
+NUM_OF_REFRACTIONS = 4
+BOX = vec3(W*W, 500, H*H) 
 
-camera = vec3(W//2, -200, H//2)
+camera = vec3(W//2, -400, H//2)
 
-object_functions = [s1, s2, plane]
+###
+### Creating object funcs:
+###
+s3 = SphereObject(vec3(W//2 - 200, 200, H//2 - 200), 130)
+s4 = SphereObject(vec3(W//2 + 400, 300, H//2 - 300), 180)
+s5 = SphereObject(vec3(W//2 + 600, 200, H//2 + 400), 170)
+
+###
+### Initializing list of objects:
+###
+object_functions = [s1, s2, plane, s3, s4, s5]
 
 light1 = Light(vec3(W//2, 0, H//2) + vec3(30, 0, 10), vec3(255,255,255)/2)
 lights = [light1, Light(vec3(-20, 10, H//2 + 80), vec3(12, 14, 12))]
 soft_lights = [] 
 materials = {}
 
+###
+### Materials:
+###
 default_mat = Material()
 for f in object_functions:
     materials[f] = default_mat
-materials[s2] = Material(diffuse = 0.6, reflection = 0.7, color = vec3(212, 212, 250))
+materials[s2] = Material(reflection = 0.7, color = vec3(212, 212, 250))
 materials[s1] = Material(reflection = 0.6, color = vec3(200, 120, 10))
+materials[s3] = Material(reflection = 0.5, refraction = 1, refract_coeff = 1.07, color = vec3(100, 212, 30))
+materials[s4] = Material(reflection = 0.4, refraction = 0.8, refract_coeff = 1.5, color = vec3(220, 50, 50))
+materials[s5] = Material(reflection = 0.6, color = vec3(100, 100, 253))
 
 
 
@@ -202,7 +229,7 @@ def EstNormal(z, obj, eps = 0.001):
 
 def RayIntersectLinear(ray, step = 4, ignore_mesh = []):
     ' returns False if no intersection is found, or [dist, point]'
-    i = 1
+    i = 0
     while i <= MAX_RAY_LENGTH:
         dot = ray.org() + ray.sdir * i * step ### ray.sdir <-> ray.dir()
         if abs(dot.y) >= BOX.y or abs(dot.x) >= BOX.x or abs(dot.z) >= BOX.z: ### BOX added
@@ -246,15 +273,25 @@ def RayIntersect(ray, max_len = MAX_RAY_LENGTH, ignore_mesh = []):
         dot += ray.sdir * dist_min ### ray.sdir <-> ray.dir()
     #print("Out of cycle!\n")
     return RayIntersectLinear(Ray(dot, dot + ray.sdir))  ### using ray.sdir instead of ray.dir(). sdir caches dir() at ray creation
+
+
+def background(x, y):
+    tile_size = 100
+    return vec3(255,255,255) * ((x // tile_size + y // tile_size) % 2)
            
 
-def RayTrace(ray, refl_depth = NUM_OF_REFLECTIONS, ignore_mesh_rt = []):
+def RayTrace(ray, refl_depth = NUM_OF_REFLECTIONS, refr_depth = NUM_OF_REFRACTIONS, ignore_mesh_rt = [], prev_mesh = []):
     color = vec3(0,0,0)
     black = vec3(0,0,0)
     
     hit = RayIntersect(ray, ignore_mesh = ignore_mesh_rt) # either a [dist, hit_point] or False.
     if not hit:
-        return color
+        #return color #### background(ray.end.x, ray.end.z)
+        i = 1
+        while ray.length() < MAX_RAY_LENGTH:
+            ray.end = ray.org() + ray.sdir * i
+            i += 1
+        return background(ray.end.x, ray.end.z)
     
     hit_point = hit[1]
     
@@ -273,10 +310,10 @@ def RayTrace(ray, refl_depth = NUM_OF_REFLECTIONS, ignore_mesh_rt = []):
     dI = normalized(Normal).dot(normalized(ray.sdir))
     if dI < 0:
         dI = -dI
-    color = mat.color * dI
+    color = mat.color * dI * (1 - mat.refraction)
     
     for ls in lights:
-        color += shade(ls, hit_point, f) * mat.diffuse
+        color += shade(ls, hit_point, f) * mat.diffuse * (1 - mat.refraction)
     
     
     # hard shadows
@@ -287,10 +324,11 @@ def RayTrace(ray, refl_depth = NUM_OF_REFLECTIONS, ignore_mesh_rt = []):
     
         
     
-    if materials[f].reflection > 0 and refl_depth > 0: # relfection > 0
+    if f not in prev_mesh and materials[f].reflection > 0 and refl_depth > 0:
+        refl_depth -= 1
         reflected = reflect(f, ray, hit_point)
         #color += RayTrace(reflected, refl_depth - 1) * materials[f].reflection
-        refl_color_temp = RayTrace(reflected, refl_depth - 1, ignore_mesh_rt = [f]) 
+        refl_color_temp = RayTrace(reflected, refl_depth, refr_depth, ignore_mesh_rt = [f]) 
         try:
             refl_color = refl_color_temp * (mat.refl_fading ** (NUM_OF_REFLECTIONS - refl_depth))  * materials[f].reflection
         except NameError:
@@ -303,6 +341,14 @@ def RayTrace(ray, refl_depth = NUM_OF_REFLECTIONS, ignore_mesh_rt = []):
         color = refl_color * mat.reflection + color * (1 - mat.reflection)
     except NameError:
         pass
+    
+    if mat.refraction > 0 and refr_depth > 0:
+        refr_depth -= 1
+        refracted = refract(Normal, mat, ray, hit_point)
+        if refracted:
+            color += RayTrace(refracted, refl_depth, refr_depth, ignore_mesh_rt = [f], prev_mesh = []) * mat.refraction ### ignore_mesh_rt = [f]
+        
+    
         
     return clamp(color)
 
@@ -310,6 +356,21 @@ def reflect(f, ray, hit_point):
     normal = EstNormal(hit_point, f)
     temp = normal * ray.dir().dot(normal) * -2
     return Ray(hit_point, hit_point + ray.sdir + temp)
+
+def refract(normal, mat, ray, hit_point):
+    eta = 1.0 / mat.refraction_coeff
+    #normal = normal * -1   ### dives some strange dope sh#t, but looks kinda cool...
+    cos_theta = -normal.dot(ray.sdir) 
+    if cos_theta < 0:
+        cos_theta *= -1
+        normal *= -1
+        eta = 1/eta
+    k = 1 - eta*eta*(1 - cos_theta*cos_theta)
+    if k >= 0:
+        ray_dir = normalized(ray.sdir * eta + normal * (eta*cos_theta - sqrt(k)))
+        return Ray(hit_point, ray_dir + hit_point)
+    return False
+    
 
 def shade(light, hit_point, f):
     Light_dir = light.pos - hit_point
